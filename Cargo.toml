@@ -1,0 +1,14 @@
+[package]
+name = "joy-of-mixing"
+version = "0.1.0"
+edition = "2024"
+default-run = "joy-of-mixing"
+
+[dependencies]
+nalgebra = "0.34.2"
+itertools = "0.14.0"
+argh = "0.1.19"
+
+# image_gamut
+png = "0.18.1"
+walkdir = "2.5.0"
