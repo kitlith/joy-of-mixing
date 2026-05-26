@@ -1,4 +1,4 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use itertools::Itertools;
 
@@ -24,27 +24,7 @@ struct Args {
 }
 
 fn main() {
-    let mut color_names: HashMap<Color, &str> = [
-        (0xFF1D1D21u32, "Black"),
-        (0xFFB02E26, "Red"),
-        (0xFF5E7C16, "Green"),
-        (0xFF835432, "Brown"),
-        (0xFF3C44AA, "Blue"),
-        (0xFF8932B8, "Purple"),
-        (0xFF169C9C, "Aqua"),
-        (0xFF9D9D97, "Grey"),
-        (0xFF474F52, "Dark Grey"),
-        (0xFFF38BAA, "Pink"),
-        (0xFF80C71F, "Lime"),
-        (0xFFFED83D, "Yellow"),
-        (0xFF3AB3DA, "Light Blue"),
-        (0xFFC74EBD, "Magenta"),
-        (0xFFF9801D, "Orange"),
-        (0xFFF9FFFE, "White"),
-    ]
-    .into_iter()
-    .map(|(c, name)| (Color::from(c), name))
-    .collect();
+    let mut color_names: HashMap<Color, &str> = Color::BASIC_COLORS.into_iter().collect();
 
     let args: Args = argh::from_env();
 
@@ -75,8 +55,9 @@ fn main() {
                 .total_cmp(&b.distance_squared(&target_color))
         });
 
-        let all_colors: Option<Vec<_>> =
-            args.use_all_colors.then(|| color_names.keys().cloned().collect());
+        let all_colors: Option<Vec<_>> = args
+            .use_all_colors
+            .then(|| color_names.keys().cloned().collect());
 
         let used_colors = all_colors
             .as_ref()
@@ -115,5 +96,8 @@ fn main() {
         color_bounds.0[3] = new_color;
     }
 
-    println!("Failed to find target color in {} iterations.", args.iterations);
+    println!(
+        "Failed to find target color in {} iterations.",
+        args.iterations
+    );
 }

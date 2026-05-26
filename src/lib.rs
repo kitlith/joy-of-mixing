@@ -8,8 +8,7 @@ pub struct Color(Point3<u8>);
 
 impl From<u32> for Color {
     fn from(value: u32) -> Self {
-        let bytes = value.to_be_bytes();
-        Self(Point3::new(bytes[1], bytes[2], bytes[3]))
+        Self::from_u32(value)
     }
 }
 
@@ -35,6 +34,11 @@ impl Debug for Color {
 }
 
 impl Color {
+    // since const traits are unstable
+    const fn from_u32(value: u32) -> Self {
+        let bytes = value.to_be_bytes();
+        Self(Point3::new(bytes[1], bytes[2], bytes[3]))
+    }
     // TODO: perceptual distance
     pub fn distance_squared(&self, other: &Color) -> f32 {
         distance_squared(&self.0.map(f32::from), &other.0.map(f32::from))
@@ -67,6 +71,25 @@ impl Color {
             })
             .unwrap()
     }
+
+    pub const BASIC_COLORS: [(Color, &str); 16] = [
+        (Color::from_u32(0xFF1D1D21), "Black"),
+        (Color::from_u32(0xFFB02E26), "Red"),
+        (Color::from_u32(0xFF5E7C16), "Green"),
+        (Color::from_u32(0xFF835432), "Brown"),
+        (Color::from_u32(0xFF3C44AA), "Blue"),
+        (Color::from_u32(0xFF8932B8), "Purple"),
+        (Color::from_u32(0xFF169C9C), "Aqua"),
+        (Color::from_u32(0xFF9D9D97), "Grey"),
+        (Color::from_u32(0xFF474F52), "Dark Grey"),
+        (Color::from_u32(0xFFF38BAA), "Pink"),
+        (Color::from_u32(0xFF80C71F), "Lime"),
+        (Color::from_u32(0xFFFED83D), "Yellow"),
+        (Color::from_u32(0xFF3AB3DA), "Light Blue"),
+        (Color::from_u32(0xFFC74EBD), "Magenta"),
+        (Color::from_u32(0xFFF9801D), "Orange"),
+        (Color::from_u32(0xFFF9FFFE), "White"),
+    ];
 }
 
 #[derive(Default, Clone)]
