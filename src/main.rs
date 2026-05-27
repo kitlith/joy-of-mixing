@@ -4,123 +4,29 @@ use itertools::Itertools;
 
 use joy_of_mixing::{Color, ColorBounds};
 
-/// Find a mix of colors that produces a target color
-#[derive(argh::FromArgs)]
-struct Args {
-    /// target color given in RGB or ARGB notation
-    #[argh(positional)]
-    target_color: Color,
-    /// number of colors to create before giving up
-    #[argh(option, default = "10")]
-    iterations: usize,
-    /// uses all colors instead of just the colors in the bounding tetrahedron
-    /// note: turning this on will make things a little bit slower
-    #[argh(switch)]
-    use_all_colors: bool,
-    /// maxiumum number of color parts to use for each new color
-    /// note: turning this higher will make things slower
-    #[argh(option, default = "8")]
-    max_mix_count: usize,
-}
-
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+mod cli;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 fn main() {
-    let mut color_names: HashMap<Color, Cow<str>> = Color::BASIC_COLORS
-        .into_iter()
-        .map(|(c, l)| (c, l.into()))
-        .collect();
-    let basic_colors = Color::BASIC_COLORS.map(|(c, _)| c);
-
-    let args: Args = argh::from_env();
-
-    let target_color = args.target_color;
-    println!("Target Color: {:?}", target_color);
-
-    let color_mixes = find_color_mix(
-        &basic_colors,
-        target_color.clone(),
-        args.iterations,
-        args.use_all_colors,
-        args.max_mix_count,
-    )
-    .expect("target color out of gamut!");
-
-    let final_color = if color_mixes.contains_key(&target_color) {
-        target_color
-    } else {
-        let found = color_mixes
-            .keys()
-            .min_by(|a, b| {
-                a.distance_squared(&target_color)
-                    .total_cmp(&b.distance_squared(&target_color))
-            })
-            .expect("find_color_mix returned empty mix map???")
-            .clone();
-
-        println!("Unable to find target color. Closest color: {found:?}");
-
-        found
-    };
-
-    color_names.insert(final_color.clone(), "result".into());
-
-    print_mix_deps(final_color, &color_mixes, &mut color_names, &mut 0);
+    cli::cli_main();
 }
 
-fn print_mix_deps(
-    target: Color,
-    mixes: &HashMap<Color, Vec<Color>>,
-    names: &mut HashMap<Color, Cow<str>>,
-    counter: &mut usize,
-) {
-    let mix = if let Some(mix) = mixes.get(&target) {
-        mix
-    } else {
-        return;
-    };
-
-    let mut coalesced: Vec<_> = mix
-        .iter()
-        .cloned()
-        .map(|c| (c, 1))
-        .coalesce(|p, c| {
-            (p.0 == c.0)
-                .then_some((p.0.clone(), p.1 + c.1))
-                .ok_or((p, c))
-        })
-        .inspect(|(c, _)| print_mix_deps(c.clone(), mixes, names, counter))
-        .collect();
-
-    coalesced.sort_unstable_by_key(|(_, c)| *c);
-
-    if !names.contains_key(&target) {
-        let label = format!("tmp_{}", *counter);
-        *counter += 1;
-        names.insert(target.clone(), label.into());
-    }
-
-    let label = names.get(&target).unwrap();
-
-    println!(
-        "{label}({target}) => [\n    {}\n]",
-        coalesced
-            .iter()
-            .format_with(",\n    ", |(color, count), fmt| fmt(&format_args!(
-                "{} x {count}",
-                names[color]
-            )))
-    );
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod yew_app;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+fn main() {
+    // TODO: generate initial content as SSG and then hydrate?
+    yew::Renderer::<yew_app::App>::new().render();
 }
 
 fn find_color_mix(
-    base_colors: &[Color],
+    base_colors: impl Iterator<Item = Color> + Clone,
     target_color: Color,
     iterations: usize,
     use_all_colors: bool,
     max_mix_count: usize,
 ) -> Option<HashMap<Color, Vec<Color>>> {
-    let mut color_bounds = base_colors
-        .iter()
-        .cloned()
+    let mut color_bounds = base_colors.clone()
         .array_combinations::<4>()
         .map(ColorBounds)
         .filter(|b| b.contains(&target_color))
@@ -129,7 +35,7 @@ fn find_color_mix(
         .min_by_key(|b| b.volume_6())?;
 
     let mut mix_map = HashMap::new();
-    let mut all_colors: Option<Vec<_>> = use_all_colors.then(|| base_colors.to_vec());
+    let mut all_colors: Option<Vec<_>> = use_all_colors.then(|| base_colors.collect());
 
     for _ in 0..iterations {
         // place the bounding vertex farthest from the target color in the last slot
@@ -170,4 +76,48 @@ fn find_color_mix(
     }
 
     Some(mix_map)
+}
+
+struct MixDisplayInfo {
+    color: Color,
+    mix: Vec<(Color, usize)>,
+}
+
+fn mix_dep_order(
+    target: Color,
+    mixes: &HashMap<Color, Vec<Color>>,
+    names: &mut HashMap<Color, Cow<str>>,
+    out: &mut Vec<MixDisplayInfo>,
+) {
+    let mix = if let Some(mix) = mixes.get(&target) {
+        mix
+    } else {
+        return;
+    };
+
+    // this color has already been processed
+    if out.iter().find(|m| m.color == target).is_some() {
+        return;
+    }
+
+    let mut coalesced: Vec<_> = mix
+        .iter()
+        .cloned()
+        .map(|c| (c, 1))
+        .coalesce(|p, c| {
+            (p.0 == c.0)
+                .then_some((p.0.clone(), p.1 + c.1))
+                .ok_or((p, c))
+        })
+        .inspect(|(c, _)| mix_dep_order(c.clone(), mixes, names, out))
+        .collect();
+
+    coalesced.sort_unstable_by_key(|(_, c)| *c);
+
+    if !names.contains_key(&target) {
+        let label = format!("tmp_{}", out.len());
+        names.insert(target.clone(), label.into());
+    }
+
+    out.push(MixDisplayInfo { color: target, mix: coalesced });
 }

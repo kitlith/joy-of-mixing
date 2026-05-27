@@ -5,10 +5,18 @@ edition = "2024"
 default-run = "joy-of-mixing"
 
 [dependencies]
-nalgebra = "0.34.2"
+nalgebra = "0.35.0"
 itertools = "0.14.0"
-argh = "0.1.19"
 
 # image_gamut
 png = "0.18.1"
 walkdir = "2.5.0"
+
+# Web
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+yew = { version = "0.23.0", features = ["csr"] }
+web-sys = { version = "0.3.99", features = [ "HtmlFormElement" ] }
+
+# Cli
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+argh = "0.1.19"

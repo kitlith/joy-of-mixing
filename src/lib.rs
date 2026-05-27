@@ -1,4 +1,3 @@
-use argh::FromArgValue;
 use itertools::Itertools;
 use nalgebra::{Matrix4, Point3, distance_squared};
 use std::{
@@ -21,7 +20,8 @@ impl From<[u8; 3]> for Color {
     }
 }
 
-impl FromArgValue for Color {
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+impl argh::FromArgValue for Color {
     fn from_arg_value(value: &str) -> Result<Self, String> {
         u32::from_str_radix(value, 16)
             .map(<_>::into)
