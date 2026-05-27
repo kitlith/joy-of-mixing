@@ -1,0 +1,43 @@
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - '**.md'
+  workflow_dispatch:
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: "wasm32-unknown-unknown"
+      - name: Install Trunk # TODO: download from releases instead
+        run: cargo install --locked trunk
+      - name: Build
+        run: trunk build --release --public-url=/joy-of-mixing/
+      - name: Upload
+        id: upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment
