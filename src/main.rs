@@ -129,7 +129,7 @@ fn find_color_mix(
         .min_by_key(|b| b.volume_6())?;
 
     let mut mix_map = HashMap::new();
-    let all_colors: Option<Vec<_>> = use_all_colors.then(|| base_colors.to_vec());
+    let mut all_colors: Option<Vec<_>> = use_all_colors.then(|| base_colors.to_vec());
 
     for _ in 0..iterations {
         // place the bounding vertex farthest from the target color in the last slot
@@ -157,11 +157,16 @@ fn find_color_mix(
             });
 
         mix_map.insert(new_color.clone(), new_color_mix);
-        color_bounds.0[3] = new_color.clone();
 
         if new_color == target_color {
             break;
         }
+
+        if let Some(all) = all_colors.as_mut() {
+            all.push(new_color.clone())
+        }
+
+        color_bounds.0[3] = new_color;
     }
 
     Some(mix_map)
