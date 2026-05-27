@@ -1,7 +1,10 @@
 use argh::FromArgValue;
 use itertools::Itertools;
 use nalgebra::{Matrix4, Point3, distance_squared};
-use std::{f32, fmt::Debug};
+use std::{
+    f32,
+    fmt::{Debug, Display},
+};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Color(Point3<u8>);
@@ -33,6 +36,13 @@ impl Debug for Color {
     }
 }
 
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let color = (self.0[0] as u32) << 16 | (self.0[1] as u32) << 8 | (self.0[2] as u32) << 0;
+        write!(f, "#{:06x}", color)
+    }
+}
+
 impl Color {
     // since const traits are unstable
     const fn from_u32(value: u32) -> Self {
@@ -49,10 +59,9 @@ impl Color {
         colors: &'a [Color],
         max_mix_colors: usize,
         mut filter: impl FnMut(Color) -> bool,
-    ) -> (Color, Vec<&'a Color>)
-    {
+    ) -> (Color, Vec<Color>) {
         (1..=max_mix_colors)
-            .flat_map(move |num| colors.iter().combinations_with_replacement(num))
+            .flat_map(move |num| colors.iter().cloned().combinations_with_replacement(num))
             .map(|mix| {
                 (
                     mix.iter()
@@ -150,7 +159,12 @@ impl ColorBounds {
     }
 
     pub fn contains(&self, color: &Color) -> bool {
-        let tet_matrix = Matrix4::from_columns(&self.0.clone().map(|vn| vn.0.coords.map(f32::from).insert_row(3, 1.)));
+        let tet_matrix = Matrix4::from_columns(
+            &self
+                .0
+                .clone()
+                .map(|vn| vn.0.coords.map(f32::from).insert_row(3, 1.)),
+        );
         let p = color.0.coords.map(f32::from).insert_row(3, 1.);
 
         let check_sign = tet_matrix.determinant().signum();
